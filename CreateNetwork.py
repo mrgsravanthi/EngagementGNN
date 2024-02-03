@@ -5,7 +5,7 @@ import datetime
 from joblib import Parallel, delayed
 from tqdm.auto import tqdm
 import numpy as np
-
+import pickle
 # settings (define the path to the tweets dataset)
 delta = 15
 path_to_tweets = "./first_week.csv"
@@ -16,26 +16,23 @@ Function to compute the edges on a slice of the tweets dataframe.
 Returns the corresponding list of edges
 '''
 
-
-def edges_subset(split_df, delta=15):
-    # filter by time
+def edges_subset(split_df):
     edges = []
     for _, post in split_df.iterrows():
-        sub_df = df.loc[((df["time"]) > post["time"] - datetime.timedelta(minutes=delta)) &
-                        (df["time"] < post["time"])].copy(deep=True)
-        sub_df["connected"] = sub_df["hashtag"].apply(lambda x: len(set(x).intersection(post["hashtag"])))
+        sub_df = df.copy(deep=True)  # Remove the time-based filtering
+        sub_df["connected"] = sub_df["hashtags"].apply(lambda x: len(set(x).intersection(post["hashtags"])))
         sub_df = sub_df.loc[sub_df["connected"] > 0]
         edges = edges + [(row["id"], post["id"], row["connected"]) for _, row in sub_df.iterrows()]
     return edges
 
-
 # LOAD DATA
 df = pd.read_csv(path_to_tweets, lineterminator='\n')
-df["hashtag"] = df["hashtag"].apply(lambda x: list(set(ast.literal_eval(x))))
+df = df.drop_duplicates('id')
+df["hashtags"] = df["hashtags"].apply(lambda x: list(set(ast.literal_eval(x))))
 df["time"] = pd.to_datetime(df["time"])
 
 # COMPUTE EDGES using Parallel jobs. It works on dataframe splits
-all_edges = Parallel(n_jobs=n_jobs)(delayed(edges_subset)(split_df, delta=delta) for split_df in tqdm(np.array_split(df, 100)))
+all_edges = Parallel(n_jobs=n_jobs)(delayed(edges_subset)(split_df) for split_df in tqdm(np.array_split(df, 100)))
 all_edges = [y for x in all_edges for y in x]
 
 # CREATE GRAPH
@@ -60,5 +57,5 @@ else:
     filename = path_to_tweets.split("\\")[-1].split(".")[0]
 
 
-# protocol=4 ensures compatibility with older Python versions
-nx.write_gpickle(graph, "network_tweets.pickle", protocol=4)
+with open("network_tweets.pickle", "wb") as file:
+    pickle.dump(graph, file)

@@ -1,7 +1,7 @@
 from tensorflow.keras import layers
 from utils import create_ffn
 import tensorflow as tf
-
+import numpy as np
 
 class GraphConvLayer(layers.Layer):
     def __init__(
@@ -35,16 +35,31 @@ class GraphConvLayer(layers.Layer):
 
     def prepare(self, node_repesentations, weights=None):
         # node_repesentations shape is [num_edges, embedding_dim].
+
+        
         messages = self.ffn_prepare(node_repesentations)
         if weights is not None:
             messages = messages * tf.expand_dims(weights, -1)
+        print(messages)
         return messages
+        # try:
+        #     messages = self.ffn_prepare(node_repesentations)
+        #     if weights is not None:
+        #         messages = messages * tf.expand_dims(weights, -1)
+        #     print(messages)
+        #     return messages
+        # except tensorflow.python.framework.errors_impl.InvalidArgumentError as e:
+        #     print(f"TensorFlow InvalidArgumentError: {e}")
+        # except Exception as e:
+        #     # Handling other exceptions
+        #     print(f"Unexpected Error: {e}")
 
     def aggregate(self, node_indices, neighbour_messages, node_repesentations):
         # node_indices shape is [num_edges].
         # neighbour_messages shape: [num_edges, representation_dim].
         # node_repesentations shape is [num_nodes, representation_dim].
         num_nodes = node_repesentations.shape[0]
+        print(num_nodes)
         if self.aggregation_type == "sum":
             aggregated_message = tf.math.unsorted_segment_sum(
                 neighbour_messages, node_indices, num_segments=num_nodes
@@ -59,7 +74,6 @@ class GraphConvLayer(layers.Layer):
             )
         else:
             raise ValueError(f"Invalid aggregation type: {self.aggregation_type}.")
-
         return aggregated_message
 
     def update(self, node_repesentations, aggregated_messages):
@@ -92,7 +106,6 @@ class GraphConvLayer(layers.Layer):
         inputs: a tuple of three elements: node_repesentations, edges, edge_weights.
         Returns: node_embeddings of shape [num_nodes, representation_dim].
         """
-
         node_repesentations, edges, edge_weights = inputs
         # Get node_indices (source) and neighbour_indices (target) from edges.
         node_indices, neighbour_indices = edges[0], edges[1]
@@ -158,8 +171,8 @@ class GNNNodeRegression(tf.keras.Model):
         # Create a postprocess layer.
         self.postprocess = create_ffn(hidden_units, dropout_rate, name="postprocess")
         # Create a compute logits layer.
-        self.compute_logits = layers.Dense(units=num_classes, name="logits")
-
+        self.compute_regression = layers.Dense(units=1, name="regression")
+    
     def call(self, input_node_indices):
         # Preprocess the node_features to produce node representations.
         x = self.preprocess(self.node_features)
@@ -174,15 +187,18 @@ class GNNNodeRegression(tf.keras.Model):
         # Postprocess node embedding.
         x = self.postprocess(x)
         # Fetch node embeddings for the input node_indices.
+        
+        input_node_indices = tf.dtypes.cast(input_node_indices, dtype=tf.int32)
+        
         node_embeddings = tf.gather(x, input_node_indices)
-        # Compute logits
-        return self.compute_logits(node_embeddings)
+        
+        return self.compute_regression(node_embeddings)
 
 
 def create_GCN(graph_info, num_classes, hidden_units, dropout_rate):
     # SUM, CONCAT DA NON TOCCARE MAI E' LA MIGLIORE
     gnn_model = GNNNodeRegression(
-        num_classes=num_classes,
+        num_classes=1,
         aggregation_type="sum",
         combination_type="concat",
         graph_info=graph_info,

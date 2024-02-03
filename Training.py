@@ -1,17 +1,18 @@
 from tensorflow import keras
 import xgboost as xgb
-
+import numpy as np
 
 def run_experiment(model, x_train, y_train, learning_rate, loss, num_epochs, batch_size, optimizer):
     # Compile the model.
+    
     model.compile(
         optimizer=optimizer(learning_rate),
-        loss=loss(from_logits=True),
-        metrics=['accuracy'],
+        loss=loss,
+        metrics=['mean_squared_error', 'mean_absolute_error'],
     )
     # Create an early stopping callback.
     early_stopping = keras.callbacks.EarlyStopping(
-        monitor="val_loss", patience=5, restore_best_weights=True
+        monitor="val_loss", patience=10, restore_best_weights=True
     )
     reduce_lr = keras.callbacks.ReduceLROnPlateau(
         patience=2

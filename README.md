@@ -46,8 +46,14 @@ The script will create the graph network as 'network_tweets.pickle'.
 ### Running the Code
 
 Once the graph network has been created, it is possible to replicate the results of our paper, executing the following command in your terminal:
+If you don't have the text embeddings in your dataset:
 ```
-python3 main.py --LOAD_CSV --EXTRACT_BERT --USE_PCA --USER_FEAT --BERT_FEAT --Model_Type 'GCN'
+python3 main.py --EXTRACT_BERT --Model_Type GCN
+```
+This will create the dataset new dataset with the added text embeddings
+Once you have the dataset then:
+```
+python3 main.py --LOAD_CSV --Model_Type GCN
 ```
 #### Arguments Explanation
 
@@ -55,9 +61,6 @@ The following arguments can be passed to the main.py script:
 
 - LOAD_CSV: If you have already computed the features in a csv file, you can load it with this argument. In our code, we load the file "first_week_posts_bert.csv", which contains post features and BERT-extracted text embeddings.
 - EXTRACT_BERT: Computes the text embedding of the posts using BERT (valid only if LOAD_CSV is not provided).
-- USE_PCA: If True, computes the Principal Component Analysis with 48 projected features that cover more than 80% of the variance of the text features.
-- USER_FEAT: If True, includes Post Features in the final feature set.
-- BERT_FEAT: If True, includes Text Features in the final feature set.
 - Model_Type: Can be one of the following: 'GCN', 'MLP', 'Conv1D', 'GAT', 'XGBOOST'. Default value is 'GCN'.
 
 Note: If any argument is omitted, its default value is False.
